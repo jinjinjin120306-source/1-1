@@ -1,88 +1,202 @@
 import streamlit as st
-from google import genai
-from google.genai import types
 
-st.set_page_config(page_title="연애상담 챗봇", page_icon="💌")
+# 페이지 설정
+st.set_page_config(
+    page_title="AI 다이어트 코치",
+    page_icon="💪",
+    layout="wide"
+)
 
-st.title("💌 연애상담 챗봇")
-st.caption("Gemini 2.5 Flash Lite 기반. 진지한 위기 상황은 전문가 도움을 권장해요.")
+# -------------------------------
+# 데이터
+# -------------------------------
 
-SYSTEM_PROMPT = """
-너는 따뜻하고 현실적인 연애상담 챗봇이다.
-사용자의 감정을 먼저 공감하고, 판단하지 말고, 구체적인 다음 행동을 제안한다.
-조작, 집착, 스토킹, 폭력, 자해 위험이 보이면 안전을 우선 안내한다.
-전문가가 필요한 상황은 상담사, 병원, 긴급기관 도움을 권한다.
-답변은 한국어로 자연스럽게 한다.
-"""
+meal_plans = {
+    "감량": {
+        "아침": "삶은 계란 2개 + 바나나 1개",
+        "점심": "닭가슴살 샐러드 + 고구마",
+        "저녁": "연어 샐러드 + 채소"
+    },
+    "유지": {
+        "아침": "오트밀 + 우유",
+        "점심": "현미밥 + 닭가슴살 + 채소",
+        "저녁": "두부 샐러드"
+    },
+    "증량": {
+        "아침": "오트밀 + 바나나 + 계란",
+        "점심": "현미밥 + 닭가슴살 + 고구마",
+        "저녁": "소고기 + 채소 + 밥"
+    }
+}
 
-def get_client():
-    api_key = st.secrets.get("GEMINI_API_KEY")
-    if not api_key:
-        st.error("GEMINI_API_KEY가 Secrets에 없습니다.")
-        st.stop()
-    return genai.Client(api_key=api_key)
-
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "안녕. 어떤 연애 고민이 있어? 편하게 말해줘 💬"}
+exercise_plans = {
+    "초급": [
+        "걷기 30분",
+        "스쿼트 15회 × 3세트",
+        "플랭크 30초 × 3세트"
+    ],
+    "중급": [
+        "조깅 30분",
+        "스쿼트 20회 × 4세트",
+        "푸쉬업 15회 × 4세트"
+    ],
+    "고급": [
+        "러닝 45분",
+        "버피 20회 × 5세트",
+        "플랭크 1분 × 5세트"
     ]
+}
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# -------------------------------
+# 사이드바
+# -------------------------------
 
-user_input = st.chat_input("고민을 입력하세요")
+menu = st.sidebar.radio(
+    "메뉴 선택",
+    [
+        "🏠 메인",
+        "🍱 식단 추천",
+        "🏃 운동 추천",
+        "🔥 BMI 계산",
+        "📅 7일 플랜"
+    ]
+)
 
-if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
+# -------------------------------
+# 메인 페이지
+# -------------------------------
 
-    with st.chat_message("user"):
-        st.markdown(user_input)
+if menu == "🏠 메인":
+
+    st.title("💪 AI 다이어트 코치")
+
+    st.subheader("건강한 식단과 운동을 한 번에 관리하세요!")
+
+    st.markdown("""
+    ### 📌 앱 소개
+
+    이 앱은 다이어트를 시작하는 사람들을 위한 간단한 건강 관리 도구입니다.
+
+    #### 제공 기능
+    - 🍱 목표별 식단 추천
+    - 🏃 운동 난이도별 운동 추천
+    - 🔥 BMI 계산
+    - 📅 7일 다이어트 계획 제공
+
+    #### 추천 대상
+    - 체중 감량을 원하는 사람
+    - 건강한 식습관을 만들고 싶은 사람
+    - 운동 루틴이 필요한 사람
+    """)
+
+    st.success("왼쪽 메뉴에서 원하는 기능을 선택해보세요!")
+
+# -------------------------------
+# 식단 추천
+# -------------------------------
+
+elif menu == "🍱 식단 추천":
+
+    st.title("🍱 맞춤 식단 추천")
+
+    goal = st.selectbox(
+        "목표를 선택하세요",
+        ["감량", "유지", "증량"]
+    )
+
+    if st.button("식단 추천 받기"):
+
+        plan = meal_plans[goal]
+
+        st.success(f"{goal} 목표 식단")
+
+        st.write(f"🥚 아침 : {plan['아침']}")
+        st.write(f"🍗 점심 : {plan['점심']}")
+        st.write(f"🥗 저녁 : {plan['저녁']}")
+
+# -------------------------------
+# 운동 추천
+# -------------------------------
+
+elif menu == "🏃 운동 추천":
+
+    st.title("🏃 운동 추천")
+
+    level = st.selectbox(
+        "운동 수준 선택",
+        ["초급", "중급", "고급"]
+    )
+
+    if st.button("운동 추천 받기"):
+
+        st.success(f"{level} 운동 루틴")
+
+        for exercise in exercise_plans[level]:
+            st.write("✅", exercise)
+
+# -------------------------------
+# BMI 계산
+# -------------------------------
+
+elif menu == "🔥 BMI 계산":
+
+    st.title("🔥 BMI 계산기")
 
     try:
-        client = get_client()
 
-        contents = []
-        for msg in st.session_state.messages:
-            if msg["role"] == "user":
-                role = "user"
-            elif msg["role"] == "assistant":
-                role = "model"
+        height = st.number_input(
+            "키(cm)",
+            min_value=100.0,
+            max_value=250.0,
+            value=170.0
+        )
+
+        weight = st.number_input(
+            "몸무게(kg)",
+            min_value=20.0,
+            max_value=300.0,
+            value=65.0
+        )
+
+        if st.button("BMI 계산"):
+
+            bmi = weight / ((height / 100) ** 2)
+
+            st.metric("BMI", f"{bmi:.1f}")
+
+            if bmi < 18.5:
+                result = "저체중"
+            elif bmi < 23:
+                result = "정상"
+            elif bmi < 25:
+                result = "과체중"
             else:
-                continue
+                result = "비만"
 
-            contents.append(
-                types.Content(
-                    role=role,
-                    parts=[types.Part(text=msg["content"])]
-                )
-            )
+            st.info(f"판정 결과 : {result}")
 
-        with st.chat_message("assistant"):
-            with st.spinner("답변을 생각하는 중..."):
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash-lite",
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_PROMPT,
-                        temperature=0.8,
-                    ),
-                )
+    except Exception:
+        st.error("입력값을 확인해주세요.")
 
-                answer = response.text or "답변을 생성하지 못했어요. 다시 한 번 말해줄래요?"
-                st.markdown(answer)
+# -------------------------------
+# 7일 플랜
+# -------------------------------
 
-        st.session_state.messages.append({"role": "assistant", "content": answer})
+elif menu == "📅 7일 플랜":
 
-    except Exception as e:
-        error_msg = f"오류가 발생했어요: {e}"
-        st.error(error_msg)
-        st.session_state.messages.append({"role": "assistant", "content": error_msg})
+    st.title("📅 7일 다이어트 플랜")
 
-with st.sidebar:
-    st.header("설정")
-    if st.button("채팅 기록 초기화"):
-        st.session_state.messages = [
-            {"role": "assistant", "content": "채팅 기록을 초기화했어. 다시 고민을 말해줘 💬"}
-        ]
-        st.rerun()
+    plans = [
+        "DAY 1 - 걷기 30분 + 물 2L",
+        "DAY 2 - 스쿼트 50회",
+        "DAY 3 - 조깅 20분",
+        "DAY 4 - 플랭크 3분",
+        "DAY 5 - 유산소 30분",
+        "DAY 6 - 전신 스트레칭",
+        "DAY 7 - 가벼운 산책"
+    ]
+
+    for plan in plans:
+        st.write("✅", plan)
+
+    st.success("7일 동안 꾸준히 실천해보세요!")
