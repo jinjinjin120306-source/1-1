@@ -1,225 +1,265 @@
-```python
 import streamlit as st
-import pandas as pd
 import random
 
 st.set_page_config(
-    page_title="Smart Diet Planner",
+    page_title="Diet Planner AI",
     page_icon="🥗",
     layout="wide"
 )
 
-# -----------------------
-# 식단 데이터
-# -----------------------
+# =========================
+# Gemini
+# =========================
 
-DIET_PLANS = {
+def ask_gemini(question):
+    try:
+        from google import genai
+
+        api_key = st.secrets["GEMINI_API_KEY"]
+
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+당신은 전문 영양사입니다.
+
+사용자가 먹고 싶은 음식을
+다이어트 식단 형태로 바꾸는 방법을 알려주세요.
+
+질문:
+{question}
+
+답변 형식:
+1. 먹어도 되는지
+2. 칼로리 줄이는 방법
+3. 추천 조합
+4. 주의사항
+"""
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite",
+            contents=prompt
+        )
+
+        return response.text
+
+    except KeyError:
+        return "GEMINI_API_KEY가 설정되지 않았습니다."
+
+    except Exception as e:
+        return f"AI 응답 오류: {e}"
+
+# =========================
+# 음식 DB
+# =========================
+
+food_db = {
+    "닭가슴살(100g)": 165,
+    "삶은계란": 70,
+    "바나나": 105,
+    "사과": 95,
+    "고구마(100g)": 128,
+    "현미밥(100g)": 150,
+    "오트밀(50g)": 190,
+    "그릭요거트": 120,
+    "두부(100g)": 80,
+    "연어(100g)": 208,
+    "브로콜리": 35,
+    "아몬드(20g)": 116,
+    "아보카도": 160,
+    "토마토": 22,
+    "샐러드": 80,
+    "우유": 120,
+    "참치캔": 150,
+    "통밀빵": 80,
+    "단백질쉐이크": 150,
+    "오렌지": 62
+}
+
+# =========================
+# 식단 데이터
+# =========================
+
+diet_plans = {
     "체중 감량": [
-        {"name":"닭가슴살 샐러드 식단","foods":[("오트밀",250),("닭가슴살 샐러드",350),("연어",300),("그릭요거트",120)]},
-        {"name":"저탄수 식단","foods":[("계란 2개",140),("닭가슴살",250),("두부",180),("샐러드",100)]},
-        {"name":"지중해식 식단","foods":[("오트밀",250),("연어",350),("아보카도",150),("샐러드",120)]},
-        {"name":"현미 다이어트 식단","foods":[("현미밥",250),("닭가슴살",250),("채소",100),("요거트",120)]},
-        {"name":"고단백 감량 식단","foods":[("계란",210),("닭가슴살",300),("그릭요거트",120),("채소",80)]},
-        {"name":"연어 감량 식단","foods":[("연어",350),("채소",100),("고구마",180),("요거트",120)]},
-        {"name":"채식 다이어트 식단","foods":[("두부",200),("현미밥",250),("채소",120),("바나나",100)]},
-        {"name":"오트밀 식단","foods":[("오트밀",300),("계란",140),("샐러드",100),("요거트",120)]},
-        {"name":"균형 감량 식단","foods":[("현미밥",250),("생선",250),("채소",120),("과일",100)]},
-        {"name":"저지방 식단","foods":[("계란",140),("닭가슴살",250),("채소",150),("사과",95)]},
+        {
+            "아침": [("오트밀(50g)",190),("바나나",105)],
+            "점심": [("닭가슴살(100g)",165),("현미밥(100g)",150),("브로콜리",35)],
+            "저녁": [("두부(100g)",80),("샐러드",80)],
+            "간식": [("그릭요거트",120)]
+        },
+        {
+            "아침": [("삶은계란",70),("사과",95)],
+            "점심": [("연어(100g)",208),("샐러드",80)],
+            "저녁": [("닭가슴살(100g)",165),("브로콜리",35)],
+            "간식": [("아몬드(20g)",116)]
+        },
+        {
+            "아침": [("그릭요거트",120),("바나나",105)],
+            "점심": [("참치캔",150),("현미밥(100g)",150)],
+            "저녁": [("두부(100g)",80),("토마토",22)],
+            "간식": [("사과",95)]
+        }
     ],
-    "체중 유지": [
-        {"name":"한식 균형식","foods":[("현미밥",300),("생선",300),("채소",150),("과일",100)]},
-        {"name":"일반 균형식","foods":[("토스트",250),("닭가슴살",250),("현미밥",300),("요거트",120)]},
-        {"name":"직장인 도시락 식단","foods":[("현미밥",350),("닭가슴살",250),("채소",150)]},
-        {"name":"지중해 유지 식단","foods":[("연어",350),("아보카도",180),("샐러드",120),("과일",100)]},
-        {"name":"생선 위주 식단","foods":[("생선",350),("현미밥",300),("채소",150)]},
-        {"name":"닭고기 위주 식단","foods":[("닭가슴살",300),("현미밥",300),("채소",150)]},
-        {"name":"건강 유지 식단","foods":[("오트밀",250),("연어",300),("채소",150),("요거트",120)]},
-        {"name":"균형 영양 식단","foods":[("계란",210),("현미밥",300),("생선",300)]},
-        {"name":"가정식 식단","foods":[("현미밥",350),("계란",140),("채소",150),("과일",100)]},
-        {"name":"활동량 유지 식단","foods":[("오트밀",300),("닭가슴살",300),("고구마",200)]},
+
+    "유지": [
+        {
+            "아침":[("오트밀(50g)",190),("우유",120)],
+            "점심":[("연어(100g)",208),("현미밥(100g)",150)],
+            "저녁":[("두부(100g)",80),("샐러드",80)],
+            "간식":[("바나나",105)]
+        },
+        {
+            "아침":[("삶은계란",70),("통밀빵",80)],
+            "점심":[("닭가슴살(100g)",165),("현미밥(100g)",150)],
+            "저녁":[("연어(100g)",208),("브로콜리",35)],
+            "간식":[("그릭요거트",120)]
+        }
     ],
+
     "근육 증가": [
-        {"name":"벌크업 식단","foods":[("오트밀",350),("계란",280),("현미밥",400),("소고기",500)]},
-        {"name":"고단백 식단","foods":[("닭가슴살",400),("계란",280),("고구마",250),("쉐이크",250)]},
-        {"name":"운동선수 식단","foods":[("현미밥",450),("소고기",500),("채소",150)]},
-        {"name":"린매스업 식단","foods":[("닭가슴살",400),("현미밥",400),("요거트",150)]},
-        {"name":"고탄수 식단","foods":[("오트밀",350),("현미밥",500),("고구마",300)]},
-        {"name":"헬스 식단","foods":[("계란",280),("닭가슴살",450),("고구마",250)]},
-        {"name":"근성장 식단","foods":[("소고기",500),("현미밥",450),("쉐이크",250)]},
-        {"name":"파워 식단","foods":[("오트밀",350),("계란",280),("소고기",500)]},
-        {"name":"운동 전후 식단","foods":[("바나나",100),("쉐이크",250),("닭가슴살",400)]},
-        {"name":"하드 벌크업 식단","foods":[("현미밥",600),("소고기",600),("계란",280)]},
+        {
+            "아침":[("오트밀(50g)",190),("단백질쉐이크",150)],
+            "점심":[("닭가슴살(100g)",165),("현미밥(100g)",150),("브로콜리",35)],
+            "저녁":[("연어(100g)",208),("현미밥(100g)",150)],
+            "간식":[("아몬드(20g)",116),("바나나",105)]
+        },
+        {
+            "아침":[("삶은계란",70),("통밀빵",80),("우유",120)],
+            "점심":[("닭가슴살(100g)",165),("현미밥(100g)",150)],
+            "저녁":[("연어(100g)",208),("두부(100g)",80)],
+            "간식":[("단백질쉐이크",150)]
+        }
     ]
 }
 
-# -----------------------
-# 칼로리 계산기 DB
-# -----------------------
+# =========================
+# UI
+# =========================
 
-FOODS = {
-    "닭가슴살 100g":165,
-    "현미밥 100g":111,
-    "고구마 100g":86,
-    "계란 1개":70,
-    "바나나 1개":100,
-    "사과 1개":95,
-    "그릭요거트 100g":97,
-    "오트밀 100g":389,
-    "연어 100g":208,
-    "아보카도 100g":160
-}
+st.title("🥗 Diet Planner AI")
 
-st.title("🥗 Smart Diet Planner")
-
-goal = st.sidebar.selectbox(
-    "목표 선택",
-    ["체중 감량","체중 유지","근육 증가"]
+tab1, tab2, tab3, tab4 = st.tabs(
+    [
+        "식단 추천",
+        "칼로리 계산기",
+        "음식 검색",
+        "AI 식단 상담"
+    ]
 )
 
-target = st.sidebar.number_input(
-    "하루 목표 칼로리",
-    min_value=1000,
-    max_value=5000,
-    value=2000
-)
-
-tab1, tab2, tab3 = st.tabs(
-    ["식단 추천","칼로리 계산기","하루 분석"]
-)
-
-# -----------------------
-# 추천 식단
-# -----------------------
+# =========================
+# 식단 추천
+# =========================
 
 with tab1:
 
-    plans = DIET_PLANS[goal]
+    st.header("다이어트 식단 추천")
 
-    def total_cal(plan):
-        return sum(cal for _, cal in plan["foods"])
-
-    best_plan = min(
-        plans,
-        key=lambda x: abs(total_cal(x)-target)
+    goal = st.selectbox(
+        "목표 선택",
+        ["체중 감량","유지","근육 증가"]
     )
 
-    if st.button("🎲 다른 식단 추천"):
-        best_plan = random.choice(plans)
+    if st.button("식단 추천 받기"):
 
-    st.subheader(best_plan["name"])
+        plan = random.choice(diet_plans[goal])
 
-    rows = []
-    total = 0
+        total = 0
 
-    for food, cal in best_plan["foods"]:
-        rows.append([food, cal])
-        total += cal
+        for meal, foods in plan.items():
 
-    df = pd.DataFrame(
-        rows,
-        columns=["음식","칼로리"]
-    )
+            st.subheader(meal)
 
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True
-    )
+            meal_total = 0
 
-    st.success(f"추천 식단 총 칼로리 : {total} kcal")
+            for food, cal in foods:
+                st.write(f"• {food} - {cal} kcal")
+                meal_total += cal
 
-    st.markdown("---")
+            total += meal_total
 
-    st.subheader("사용자 음식 추가")
+            st.success(f"{meal} 칼로리: {meal_total} kcal")
 
-    custom_name = st.text_input("음식 이름")
+        st.info(f"총 칼로리: {total} kcal")
 
-    custom_cal = st.number_input(
-        "칼로리(kcal)",
-        min_value=0,
-        value=0
-    )
-
-    if "custom_total" not in st.session_state:
-        st.session_state.custom_total = 0
-
-    if st.button("추가"):
-        st.session_state.custom_total += custom_cal
-        st.success("추가 완료")
-
-# -----------------------
-# 계산기
-# -----------------------
+# =========================
+# 칼로리 계산기
+# =========================
 
 with tab2:
 
+    st.header("칼로리 계산기")
+
     selected = st.multiselect(
         "음식 선택",
-        list(FOODS.keys())
+        list(food_db.keys())
     )
 
-    calc_total = 0
+    total = 0
 
     for food in selected:
 
-        amount = st.number_input(
-            f"{food} 배수",
-            min_value=0.5,
-            max_value=10.0,
-            value=1.0,
-            step=0.5,
+        qty = st.number_input(
+            f"{food} 개수",
+            min_value=1,
+            value=1,
             key=food
         )
 
-        calc_total += FOODS[food] * amount
+        total += food_db[food] * qty
 
     st.metric(
         "총 칼로리",
-        f"{int(calc_total)} kcal"
-    )
-
-# -----------------------
-# 분석
-# -----------------------
-
-with tab3:
-
-    final_total = (
-        total +
-        st.session_state.custom_total +
-        calc_total
-    )
-
-    st.metric(
-        "추천 식단",
         f"{total} kcal"
     )
 
-    st.metric(
-        "추가 음식",
-        f"{st.session_state.custom_total} kcal"
+# =========================
+# 음식 검색
+# =========================
+
+with tab3:
+
+    st.header("음식 칼로리 검색")
+
+    keyword = st.text_input("음식 이름 입력")
+
+    if keyword:
+
+        found = False
+
+        for food, cal in food_db.items():
+
+            if keyword.lower() in food.lower():
+
+                st.write(f"{food} : {cal} kcal")
+
+                found = True
+
+        if not found:
+            st.warning("검색 결과가 없습니다.")
+
+# =========================
+# AI 상담
+# =========================
+
+with tab4:
+
+    st.header("AI 다이어트 식단 상담")
+
+    question = st.text_area(
+        "먹고 싶은 음식이나 고민을 입력하세요",
+        placeholder="치킨이 먹고 싶은데 다이어트 식단으로 먹을 수 있을까요?"
     )
 
-    st.metric(
-        "계산기 음식",
-        f"{int(calc_total)} kcal"
-    )
+    if st.button("AI 상담 받기"):
 
-    st.metric(
-        "총 섭취량",
-        f"{int(final_total)} kcal"
-    )
+        if question.strip():
 
-    progress = min(final_total / target, 1.0)
+            with st.spinner("AI 분석 중..."):
 
-    st.progress(progress)
+                answer = ask_gemini(question)
 
-    diff = int(final_total - target)
+            st.write(answer)
 
-    if diff > 0:
-        st.error(f"{diff} kcal 초과")
-    elif diff < 0:
-        st.info(f"{abs(diff)} kcal 부족")
-    else:
-        st.success("목표 달성")
-```
+        else:
+            st.warning("질문을 입력해주세요.")
